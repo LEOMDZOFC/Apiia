@@ -9,9 +9,9 @@
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
 
   <div class="bg-gray-800 rounded-2xl shadow-xl p-6 max-w-lg w-full">
-    <h1 class="text-2xl font-bold mb-4 text-center text-yellow-400">LEO MODZ AI</h1>
+    <h1 class="text-3xl font-bold mb-4 text-center text-yellow-400">LEO MODZ AI</h1>
 
-    <!-- Chat Container -->
+    <!-- Chat container -->
     <div id="chat" class="h-80 overflow-y-auto mb-4 border border-gray-700 rounded-lg p-4 bg-gray-900">
       <!-- Mensagens aparecerão aqui -->
     </div>
@@ -31,7 +31,7 @@
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
 
-    const LOCAL_KEY = "LEOMODZDEV"; // mesma chave do Flask
+    const LOCAL_KEY = "LEOMODZDEV"; // mesma chave do Python
 
     function appendMessage(sender, text) {
       const div = document.createElement('div');
@@ -49,13 +49,11 @@
       messageInput.value = '';
 
       try {
-        const response = await fetch(`/ask?message=${encodeURIComponent(message)}&key=${LOCAL_KEY}`);
+        const response = await fetch(`/api/ask?message=${encodeURIComponent(message)}&key=${LOCAL_KEY}`);
         const data = await response.json();
 
         if (data.reply) {
-          // Remove bloco <think> se existir
-          const cleanReply = data.reply.includes("</think>") ? data.reply.split("</think>").pop().trim() : data.reply;
-          appendMessage('bot', cleanReply);
+          appendMessage('bot', data.reply);
         } else if (data.error) {
           appendMessage('bot', "Erro: " + data.error);
         }
