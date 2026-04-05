@@ -1,34 +1,25 @@
-from flask import Flask, request, jsonify
+import json
 import requests
 
-app = Flask(__name__)
-
-# --- Configuração ---
 SAMBA_API_KEY = "628081f7-96e9-4bf1-a467-488a2f33284c"
 SAMBA_URL = "https://api.sambanova.ai/v1/chat/completions"
 LOCAL_API_KEY = "LEOMODZDEV"  # Sua chave local
 
-@app.route("/ask", methods=["GET"])
-def ask_sambanova():
-    # Obtém parâmetros
-    message = request.args.get("message")
-    key = request.args.get("key")
-    
-    # Valida chave local
+def handler(req):
+    # req.query é um dict com os parâmetros GET
+    query = req.get("query", {})
+    message = query.get("message")
+    key = query.get("key")
+
+    # Valida chave
     if key != LOCAL_API_KEY:
-        return jsonify({"error": "Invalid API Key!"}), 401
+        return {"statusCode": 401, "body": json.dumps({"error": "Invalid API Key!"})}
 
     if not message:
-        return jsonify({"error": "Missing 'message' parameter!"}), 400
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing 'message' parameter!"})}
 
-    headers = {
-        "Authorization": f"Bearer {SAMBA_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    # Payload atualizado com modelo existente
     payload = {
-        "model": "DeepSeek-R1-0528",  # modelo válido
+        "model": "DeepSeek-R1-0528",
         "messages": [
             {"role": "system", "content": "You are a helpful assistant"},
             {"role": "user", "content": message}
@@ -37,40 +28,46 @@ def ask_sambanova():
         "top_p": 0.1
     }
 
+    headers = {
+        "Authorization": f"Bearer {SAMBA_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     try:
         response = requests.post(SAMBA_URL, headers=headers, json=payload, timeout=30)
 
-        # Se status HTTP não for 200, retorna erro com texto
         if response.status_code != 200:
-            return jsonify({
-                "error": f"SambaNova API returned status {response.status_code}",
-                "response_text": response.text
-            }), 500
+            return {
+                "statusCode": 500,
+                "body": json.dumps({
+                    "error": f"SambaNova API returned status {response.status_code}",
+                    "response_text": response.text
+                })
+            }
 
-        # Tenta decodificar JSON
         try:
             data = response.json()
         except Exception:
-            return jsonify({
-                "error": "Failed to decode JSON from SambaNova API",
-                "response_text": response.text
-            }), 500
+            return {
+                "statusCode": 500,
+                "body": json.dumps({
+                    "error": "Failed to decode JSON from SambaNova API",
+                    "response_text": response.text
+                })
+            }
 
-        # Extrai resposta do modelo
         reply = data.get("choices", [{}])[0].get("message", {}).get("content", "No response from model.")
+        if "</think>" in reply:
+            reply = reply.split("</think>")[-1].strip()
 
-        return jsonify({
-            "status": "success",
-            "message": message,
-            "reply": reply
-        })
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "status": "success",
+                "message": message,
+                "reply": reply
+            })
+        }
 
     except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Request error: {str(e)}"}), 500
-
-
-if __name__ == '__main__':
-    import sys
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
-    print(f"Starting AI-API on port {port} ...")
-    app.run(host='0.0.0.0', port=port, debug=True)
+        return {"statusCode": 500, "body": json.dumps({"error": f"Request error: {str(e)}"})}
